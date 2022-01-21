@@ -6,10 +6,10 @@ const Express = require('express');
 const cors = require('cors');
 const app = Express();
 const cron = require('node-cron');
-const utils = require('./src/bundler/utils');
 const { shoveBundles } = require('./src/bundler/bundleHandlers');
 const { syncNode } = require('./src/bundler/syncFuncs');
 const { bundleInit } = require('./src/bundler/bundleInit');
+const {pool} = require('./database/startup.js')
 const handlerFunc = require('./src/handler.js')
 const handler = handlerFunc.createHandler()
 const start = async () => {
@@ -26,20 +26,25 @@ const start = async () => {
         app.use(bodyParser.json({ limit: '10mb' }));
         app.use(cors());
 
-        // This is used to bundle
-        /*app.post('*', async function (req, res, next) {
-            await utils.writeToBundleCache(req);
-            next();
-        });*/
-
-
         //Request handlers right here
         //app.post('createTable', )
         app.post('/raw', handler.raw)
+        app.post('/storeFile', handler.storeFile)
+        app.post('/storePhoto', handler.storePhoto)
+        app.get('/raw', handler.raw)
         app.use(Express.static('public', { fallthrough: false }));
 
-        await bundleInit()
+        //Create a bundle table
+        await pool.query(`CREATE TABLE IF NOT EXISTS bundles(
+            bundle_id varchar(43) PRIMARY KEY,
+            height integer NOT NULL,
+            cursor_id varchar(44) NOT NULL,
+            synced boolean NOT NULL,
+            moat varchar(64) NOT NULL
+          );`)
+
         // Syncs data with server.
+
         try {
             cron.schedule('0 0 */1 * * *', async function () {
                 await syncNode();
@@ -53,6 +58,7 @@ const start = async () => {
 
         // Avoids running code on several worker threads.
         try {
+            await bundleInit()
             await syncNode();
             console.log(`Node Synced`.green);
             await shoveBundles();

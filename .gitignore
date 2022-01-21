@@ -93,10 +93,13 @@ Thumbs.db
 # Cache Data
 cacheData/
 bundles/
-public/
+public/images/
+public/settings/
 
 # Private
 .env
 app.yaml
 key.js
 cloud_config/
+finalizedBundles/
+pendingBundles/

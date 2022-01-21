@@ -1,10 +1,10 @@
 require(`dotenv`).config();
 const knex = require('../../database/db');
+const {storePhotos} = require('../filesystem/fileWriter.js')
 const axios = require('axios');
-const handlerFile = require('../handler');
 const { wait } = require('./bundleHandlers');
-//const harmony = require('../../harmony/harmonyUtils');
-
+const {pool} = require('../../database/startup.js');
+const utils = require('./utils.js')
 
 // Syncs node data with bundles referenced on Harmony network.
 const syncNode = async () => {
@@ -15,19 +15,27 @@ const syncNode = async () => {
     // Loops through all data moats, and scans Harmony network for new Kwil bundles.
     // Stores bundle metadata to the local node DB.
     for (let i = 0; i<moats.length; i++) {
-        const bundleMetaData = await scanBundles(moats[i]);
+        let latestCursor = await knex('bundles').select('cursor_id').where({synced: true}).orderBy('height', 'desc').limit(1)
 
+        if (latestCursor.length == 0) {
+            latestCursor = ''
+        } else {
+            latestCursor = latestCursor[0].cursor_id
+        }
+        const bundleMetaData = await scanBundles(moats[i], latestCursor);
         // Loops through and stores new Kwil bundle metadata to node database.
         for (let j = 0; j<bundleMetaData.length; j++) {
             try {
-                await knex('bundles').insert({
-                    bundle_id: bundleMetaData[j].hash,
-                    height: bundleMetaData[j].height,
+                //THis is in try catch since the Arweave gateway can be later than the chain.  This will lead to a null blockheight.  We only want to store confirmed block heights
+                    await knex('bundles').insert({
+                    bundle_id: bundleMetaData[j].node.id,
+                    height: bundleMetaData[j].node.block.height,
+                    cursor_id: bundleMetaData[j].cursor,
                     synced: false,
                     moat: moats[i]
                 });
             } catch(e) {
-                console.log(e);
+                console.log(`Bundle ${bundleMetaData[j].node.id} could not be stored right now.  It is either newly mined, or was already stored`);
             };
         };
     };
@@ -42,8 +50,9 @@ const syncScannedBundles = async () => {
         synced: false
     }).orderBy('height', 'asc');;
     for (let i = 0; i<bundles.length; i++) {
+        try {
         const params = {
-            url: `${process.env.ARWEAVE_NODES}/${bundles[i].bundle_id}`,
+            url: `${process.env.ARWEAVE_GRAPH_HOST}/${bundles[i].bundle_id}`,
             method: 'get',
             timeout: 20000
         };
@@ -55,76 +64,102 @@ const syncScannedBundles = async () => {
             .where({bundle_id: bundles[i].bundle_id})
             .update({synced: true});
         console.log(`Synced bundle ${bundles[i].bundle_id}`);
+    } catch(e) {
+        console.log(`Bundle data not found ${bundles[i].bundle_id}`)
+        await knex('bundles')
+            .where({bundle_id: bundles[i].bundle_id})
+            .update({synced: true});
+    }
     };
 };
 
 // Stores bundle data to node. Used when pulling bundle data rather than generating it.
 const storeBundle = async (_data) => {
-    _data = JSON.parse(_data)
-    async function defUnbundler(bData, res, _sigFunc, _dbFunc) {
-        // Very similar to def handler only utilizes sig and db functions, doesn't worry about responses.
-        if (await _sigFunc(bData)) {
-            try {
-                await _dbFunc(bData);
-            } catch(e) {
-                console.log('Record already exists');
-            };
-        };
-    };
+    try {
+        _data = JSON.parse(_data)
 
-    // We will have to leave response empty in order to match the handlers inputs.
-    const bundleHander = handlerFile.createHandler(defUnbundler);
+        //We now have the bundle data, which is a JSON with fields for each data moat
+        //I will first check to see what moats the bundle contains that are pertinent to me
 
-    /*
-        When data is fed, feed the raw data and then an empty string as the "response".
-    */
-    const fields = Object.keys(_data);
+        const moats = process.env.SYNCED_DATA_MOATS.split(" ");
 
-    // Removes createAccount from fields since this gets unbundled separately.
-    const index = fields.indexOf('createAccount');
-    fields.splice(index, 1);
-
-    // Unbundles account to add to node dataset.
-    if ( typeof _data.createAccount != 'undefined' ) {
-        for (let i = 0; i< _data.createAccount.length; i++) {
-            try {
-                await bundleHander.createAccount(_data.createAccount[i], '');
-            } catch(e) {};
-            console.log(`Unbundled user ${_data.createAccount[i].username}`);
-        };
-    };
-
-
-    await wait(2000);
-
-
-    // Iterates through and stores all new bundle data.
-    for ( let i = 0; i<fields.length; i++ ) {
-        const handlerFunc = bundleHander[fields[i]];
-        for ( let j=0; j<_data[fields[i]].length; j++ ) {
-            try {
-                await handlerFunc(_data[fields[i]][j], '');
-            } catch(e) {};
-        };
-    };
+        //Now loop through the moats, checking if the bundle contains the moat
+        for (let i = 0; i< moats.length; i++) {
+            if (moats[i] in _data) {
+                for (let j = 0; j < _data[moats[i]].length; j++) {
+                    if ('query' in _data[moats[i]][j]) {
+                        //Triggers if this is a sql query
+                        await pool.query(_data[moats[i]][j].query)
+                    } else if ('image' in _data[moats[i]][j]) {
+                        //triggers if this is a file write
+                        await storePhotos([_data[moats[i]][j].image], [_data[moats[i]][j].path])
+                    } else if ('file' in _data[moats[i]][j]) {
+                        await utils.write2File(_data[moats[i]][j].path, _data[moats[i]][j].file)
+                    } else {
+                        console.log('Unrecognized data format')
+                    } 
+                }
+            }
+        }
+    } catch(e) {
+        console.log(e)
+    }
 };
 
 // Scans local bundles and references Harmony to return new bundles to node that haven't been imported.
-const scanBundles = async (_moat) => {
-    const lastScannedBundle = await knex('bundles').select('height').where({moat: _moat}).orderBy('height', 'desc').limit(1);
-    let height;
-    if (lastScannedBundle.length == 0) {
-        height = 0
-    } else {
-        // I add 1 because if it pulled that height then it is aware of that height
-        height = lastScannedBundle[0].height + 1;
+const scanBundles = async (_moat, _cursor = '') => {
+    const bundlesPerQuery = 100
+    let bundles
+
+    if (_cursor != '') {
+        _cursor = 'after: "' + _cursor + '"'
     }
-    /*
-        Should probably set timeout here
-    */
-    //const newBundles = await harmony.getBlocks(_moat, height);
-    //return newBundles;
-    return []
+
+    const queryObj = {
+        query:
+            `query {
+        transactions(
+            first: ${bundlesPerQuery}
+            ` +
+            _cursor +
+            `
+            sort: HEIGHT_ASC,
+            tags: [
+                { name: "Application", values: ["Kwil"] }
+                { name: "Version", values: ["`+process.env.BUNDLE_VERSION+`"]}
+                { name: "Moat", values: ["`+process.env.SYNCED_DATA_MOATS+`"]}
+            ]
+        )
+        {
+            edges {
+                cursor
+                node {
+                    id
+                    block {
+                        height
+                    }
+                }
+            }
+        }
+    }`,
+    }
+    const queryURL = 'https://arweave.net/graphql'
+    const params = {
+        url: queryURL,
+        method: 'post',
+        timeout: 20000,
+        headers: { 'Content-Type': 'application/json' },
+        data: JSON.stringify(queryObj),
+    }
+    const response = await axios(params)
+    bundles = response.data.data.transactions.edges
+    console.log(bundles)
+    if (bundles.length == bundlesPerQuery) {
+        //If this triggers, then there are more bundles to scan
+        const newBundles = await scanBundles(_moat, bundles[bundlesPerQuery-1].cursor)
+        bundles = bundles.concat(newBundles)
+    }
+    return bundles
 };
 
 

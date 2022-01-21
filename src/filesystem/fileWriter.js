@@ -10,6 +10,18 @@ const {v4} = require('uuid');
 
 // Writes file content to desired file path parameter.
 const write2File = (_path, _content) => {
+    //Will first split by forward slash.  Then use all but last in fsJ.dir
+    const directs = _path.split('/')
+    let subPath = ''
+    if (directs.length > 0) {
+        for (let i = 0; i< directs.length-1; i++) {
+            subPath = subPath + directs[i] + '/'
+        }
+        console.log(subPath)
+        fsJ.dir(subPath)
+    }
+
+
     // Feeds in content as a buffer from a stringified JSON.
     let fileStream = fsG.createWriteStream(`${_path}`, { flags: 'w' });
     fileStream.write(_content);
@@ -70,11 +82,23 @@ const storePhotos = (_photos, _hashes) => {
                 const photoPath = './public/images/' + hashPath(photoHash);
 
                 // Creates photo hashpath if it doesn't already exist.
-                fsJ.dir(photoPath);
+                const subDirects = _hashes[i].split('/')
+                let finPath = ''
+                if (subDirects.length>1) {
+                    for (let j=0; j<subDirects.length-1; j++) {
+                        finPath = finPath + subDirects[j] + '/'
+                    }
+                } else {
+                    finPath = subDirects
+                }
+                console.log(_hashes[i])
+                console.log('finPath:')
+                console.log(finPath)
+                fsJ.dir(finPath)
                 // Checks whether the photo is already saved on the node and saves it if it's not.
-                if (!fs.existsSync(`${photoPath}${photoHash}.jpg`)){
+                if (!fs.existsSync(`${finPath}.jpg`)){
                     fs.writeFile(
-                        `${photoPath}${photoHash}.jpg`,
+                        `${_hashes[i]}.jpg`,
                         _photos[i],
                         { encoding: 'base64' },
                         function(err) {
@@ -118,6 +142,7 @@ const writeSettings = async (_settings, _settingsHash) => {
 // Moves file from one directory path to another on the node.
 const moveFile = async (file, dir2, _newName = '') => {
     console.log(`Copying file ${file} to ${dir2}`)
+    fsJ.dir(dir2)
 
     // Gets file name and adds it to dir2, or uses new one.
     let f;
@@ -146,9 +171,10 @@ const moveFile = async (file, dir2, _newName = '') => {
 };
 
 // Writes to persistant fs storage based on: request type, and some unique identifier (unique identifier is unimportant, just must be unique).
-const writeToBundleCache = async (_req) => {
+const writeToBundleCache = async (_data, _req) => {
     // Writes by endpoint and uuid.
-    await write2File(`./bundles/cachedBundle${_req.params['0']}_${v4()}`, JSON.stringify(_req.body));
+    fsJ.dir(`./bundles/${_req.body.moat}/cachedBundle`)
+    await write2File(`./bundles/${_req.body.moat}/cachedBundle/${_req.originalUrl}_${v4()}`, JSON.stringify(_data));
 };
 
 

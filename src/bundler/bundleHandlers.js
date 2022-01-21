@@ -21,66 +21,88 @@ const bundlePost = async (_req) => {
 
 // Moves all files from bundles/cahcedBundle to bundles/sealedBundles.
 const sealBundle = async () => {
-    const files = await utils.readDir(`bundles/cachedBundle`);
+    const files = await utils.readDir(`bundles`);
+    //Files is now a list of all moats cached
     for (let i = 0; i<files.length; i++) {
-        await utils.moveFile(`bundles/cachedBundle/${files[i]}`, `bundles/sealedBundles`);
+        const statements = await utils.readDir(`bundles/${files[i]}/cachedBundle`)
+
+        //Check if empty.  If so, delete.
+        if (statements.length == 0) {
+            await utils.rmDir(`bundles/${files[i]}`)
+        } else {
+            for (let j = 0; j< statements.length; j++) {
+                await utils.moveFile(`bundles/${files[i]}/cachedBundle/${statements[j]}`, `bundles/${files[i]}/sealedBundles`)
+            }
+        }
     };
 };
 
 // Takes files from sealed bundles and puts them into a single file in finalized bundles.
 const finalizeBundle = async () => {
     let finalBundle = {};
-    const files = await utils.readDir(`bundles/sealedBundles`);
+    const moats = await utils.readDir(`bundles`);
 
     // Splits bundles up into sub-bundle types (like post, createAccount, etc.) and seals their data accordingly.
-    for (let i = 0; i<files.length;i++) {
-        let subBundleType = files[i].split("_");
-        subBundleType = subBundleType[0];
-        if (!finalBundle[subBundleType]) {
-            finalBundle[subBundleType] = [];
-        };
-        let fileData = await utils.readFile(`bundles/sealedBundles/${files[i]}`);
-        if (fileData.length > 0) {
-            finalBundle[subBundleType].push(JSON.parse(fileData));
-        } else {
-            console.log(`${files[i]} contained no data.  Deleting.`);
-            await utils.deleteFile(`bundles/sealedBundles/${files[i]}`);
-        };
-    };
-    finalBundle = JSON.stringify(finalBundle);
-    
-    // Checks whether bundles have data adds those who do to finalizedBundles.
-    if (finalBundle.length > 2) {
-        await utils.write2File(`bundles/finalizedBundles/${v4()}`, JSON.stringify(finalBundle));
-    };
-    // Deletes remaining bundles in sealedBundles.
+    for (let i = 0; i<moats.length; i++) {
+
+        //We grab the subBundle type.  This is the request endpoint the statement came through
+
+        if (!finalBundle[moats[i]]) {
+            finalBundle[moats[i]] = []
+        }
+        const files = await utils.readDir(`bundles/${moats[i]}/sealedBundles`)
+        //Now we loop through the files
+        for (let j = 0; j< files.length; j++) {
+            let fileData = await utils.readFile(`bundles/${moats[i]}/sealedBundles/${files[j]}`)
+
+            if (fileData.length > 0) {
+                finalBundle[moats[i]].push(JSON.parse(fileData))
+            } else {
+                console.log(`${files[i]} contained no data.  Deleting.`);
+                await utils.deleteFile(`bundles/${moats[i]}/sealedBundles/${files[j]}`);
+            };
+        }
+
+        // Deletes remaining bundles in sealedBundles.
     // This happens after finalizing bundles in case the server crashes while finalizing.
-    for (let i = 0; i<files.length; i++) {
+    for (let j = 0; j<files.length; j++) {
         try {
-            /*
-                This will throw an error despite working because *dark magic*.
-            */
-            await utils.deleteFile(`bundles/sealedBundles/${files[i]}`);
+            await utils.deleteFile(`bundles/${moats[i]}/sealedBundles/${files[j]}`);
         } catch(e) {
             console.log('Error deleting File');
         };
     };
+
+    //Now I check if data ended up getting pushed.  If not, I delete the moat
+        if (finalBundle[moats[i]].length == 0) {
+            delete finalBundle[moats[i]]
+            await utils.rmDir(`bundles/${moats[i]}`)
+        }
+    }
+
+    finalBundle = JSON.stringify(finalBundle)
+    if (finalBundle.length > 2) {
+        finalBundle = JSON.stringify(finalBundle)
+        await utils.write2File(`finalizedBundles/${v4()}`, finalBundle);
+    } else {
+        console.log('Bundle was empty')
+    }
 };
 
 // Submits finalized bundles to ARWeave.
 const submitBundles = async () => {
-    const files = await utils.readDir(`bundles/finalizedBundles`);
+    const files = await utils.readDir(`finalizedBundles`);
 
     // Loops through all finalized bundles and sends them to Arweave.
     // Pending bundles are moved to pendingBundles folder in wrapper function.
     for (let i=0; i<files.length; i++) {
-        await sendBundleToArweave(`bundles/finalizedBundles/${files[i]}`, false);
+        await sendBundleToArweave(`finalizedBundles/${files[i]}`, false);
     };
 };
 
 // Scans pending bundles to check their upload status and updates their existence accordingly.
 const scanPendingBundles = async () => {
-    const files = await utils.readDir(`bundles/pendingBundles`);
+    const files = await utils.readDir(`pendingBundles`);
     for (let i = 0; i<files.length; i++) {
         const status = await arweave.transactions.getStatus(files[i]);
         
@@ -90,11 +112,11 @@ const scanPendingBundles = async () => {
             console.log(status);
         } else if (status.status == 200) { // Outputs that bundle has been mined to console and adds transaction data to Harmony network.
             console.log(`${files[i]} has been mined.  Deleting from pending pool.  Status: ${status.status}`);
-            await utils.deleteFile(`bundles/pendingBundles/${files[i]}`);
+            await utils.deleteFile(`pendingBundles/${files[i]}`);
             //await harmony.addBlock(process.env.DATA_MOAT, files[i]);
         } else if (status.status == 404) { // Resubmits bundle to ARWeave network if transaction fails to get mined.
             console.log(`${files[i]} was pending and expired.  Resumbitting...`);
-            const txid = await sendBundleToArweave(`bundles/pendingBundles/${files[i]}`);
+            const txid = await sendBundleToArweave(`pendingBundles/${files[i]}`);
                 // Adds bundle to registry.
                 await knex('bundles').insert({
                     bundle_id: txid,
@@ -103,7 +125,7 @@ const scanPendingBundles = async () => {
                     moat: process.env.DATA_MOAT
                 });
         } else {
-            console.log(`There was an error.  ARWeave returned an unexpected status code.`);
+            console.log(`There was an error.  Arweave returned an unexpected status code.`);
             console.log(status);
         };
     };
@@ -143,11 +165,11 @@ const sendBundleToArweave = async (_path, _pending=true) => {
 
     if (_pending == false) { // Moves file from wherever it was to pending.
         console.log(`Bundle ${_path} being set to pending.`);
-        await utils.moveFile(_path, `bundles/pendingBundles`, arweaveTransaction.id);
+        await utils.moveFile(_path, `pendingBundles`, arweaveTransaction.id);
 
     } else { // Renames new file for resubmission if it has already been set to pending and failed to get mined.
         console.log(`Bundle ${_path} already set to pending.  It has been resubmitted.`);
-        await utils.rename(_path, `bundles/pendingBundles/${arweaveTransaction.id}`);
+        await utils.rename(_path, `pendingBundles/${arweaveTransaction.id}`);
     }
     return {
         id: arweaveTransaction.id
@@ -175,4 +197,4 @@ const shoveBundles = async () => {
 };
 
 
-module.exports = { bundlePost, sealBundle, finalizeBundle, submitBundles, scanPendingBundles, shoveBundles, wait };
+module.exports = { bundlePost, sealBundle, finalizeBundle, submitBundles, scanPendingBundles, shoveBundles, wait }

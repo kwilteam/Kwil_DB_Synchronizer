@@ -12,8 +12,10 @@ const testF = async () => {
     //console.log(await harm.addBlock('bb1324', 'fenny1'))
     //console.log(await harm.getSender())
     //console.log(await harm.getBlocks('bb1324'))
-    const yuh = await pool.query('create table test2(test varchar(5))')
-    console.log(yuh.rows)
+    //const yuh = await pool.query('create table test2(test varchar(5))')
+    //console.log(yuh.rows)
+    const b = '/er/r/r'
+    console.log(b.split('/'))
     
 
 }
