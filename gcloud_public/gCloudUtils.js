@@ -51,7 +51,8 @@ const rename = async (_oldDir, _newDir) => {
 const readdir = async (_dir) => {
     const options = {
         prefix: _dir,
-        delimiter: '/'
+        delimiter: '/',
+        autoPaginate: false
       };
     let files = await storage.bucket(srcBucketName).getFiles(options);
     // We have to cycle through and push names but not arrays since google keeps returning an array in the array.
@@ -66,5 +67,25 @@ const readdir = async (_dir) => {
     return finalFiles;
 };
 
+const readFolders = async (_dir) => {
+    const options = {
+        prefix: _dir,
+        delimiter: '/',
+        autoPaginate: false
+      };
+    let [files, nextQuery, apiResponse] = await storage.bucket(srcBucketName).getFiles(options);
 
-module.exports = {copyFile, moveFile, write2File, readFile, deleteFile, readdir, rename}
+    //Now we need to iterate through apiResponse.prefixes, split by by /, and return the object in 1 position
+    const finalFiles = [];
+    if (typeof apiResponse.prefixes != 'undefined') {
+
+    apiResponse.prefixes.forEach(pref => {
+        let paths = pref.split('/')
+        finalFiles.push(paths[1])
+    })
+}
+    return finalFiles
+}
+
+
+module.exports = {copyFile, moveFile, write2File, readFile, deleteFile, readdir, rename, readFolders}

@@ -21,7 +21,7 @@ const bundlePost = async (_req) => {
 
 // Moves all files from bundles/cahcedBundle to bundles/sealedBundles.
 const sealBundle = async () => {
-    const files = await utils.readDir(`bundles`);
+    const files = await utils.readFolders(`bundles`);
     //Files is now a list of all moats cached
     for (let i = 0; i<files.length; i++) {
         const statements = await utils.readDir(`bundles/${files[i]}/cachedBundle`)
@@ -40,7 +40,7 @@ const sealBundle = async () => {
 // Takes files from sealed bundles and puts them into a single file in finalized bundles.
 const finalizeBundle = async () => {
     let finalBundle = {};
-    const moats = await utils.readDir(`bundles`);
+    const moats = await utils.readFolders(`bundles`);
 
     // Splits bundles up into sub-bundle types (like post, createAccount, etc.) and seals their data accordingly.
     for (let i = 0; i<moats.length; i++) {

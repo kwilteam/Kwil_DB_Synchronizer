@@ -1,5 +1,5 @@
 require(`dotenv`).config()
-const {pool} = require('./database/startup.js')
+const {pool, client} = require('./database/startup.js')
 
 
 const testF = async () => {
@@ -14,9 +14,15 @@ const testF = async () => {
     //console.log(await harm.getBlocks('bb1324'))
     //const yuh = await pool.query('create table test2(test varchar(5))')
     //console.log(yuh.rows)
-    const b = '/er/r/r'
-    console.log(b.split('/'))
+    await client.connect()
+    console.time('query')
+    //console.log(await client.query(`SELECT * FROM yuh;`))
+    for (let i=0; i<1000; i++) {
+        await client.query(`SELECT * FROM yuh;`)
+    }
+    console.timeEnd('query')
     
 
 }
-testF()
+
+//testF()

@@ -18,6 +18,16 @@ const readDir = async (_dir) => {
     return files;
 };
 
+const readFolders = async (_dir) => {
+    if (process.env.NODE_ENV == 'productionG') {
+        console.log('Reading folders from Google Cloud');
+        const files = await gcloud.readFolders(_dir+'/');
+        return files;
+    }
+    const files = await fs.promises.readdir('./'+_dir);
+    return files;
+}
+
 const rmDir = async (_dir) => {
     if (process.env.NODE_ENV == 'productionG') {
         //Gcloud logic
@@ -29,7 +39,7 @@ const rmDir = async (_dir) => {
 // Renames Google Cloud directory.
 const rename = async (_oldDir, _newDir) => {
     if (process.env.NODE_ENV == 'productionG') {
-
+        console.log(`GCLOUD: Renaming ${_oldDir} to ${_newDir}`)
         await gcloud.rename(_oldDir, _newDir);
         return;
     };
@@ -81,7 +91,7 @@ const write2File = async (_path, _content) => {
 // Writes data to cachedBundle file.
 const writeToBundleCache = async (_req, _writeData) => {
     if (process.env.NODE_ENV == 'productionG') {
-        await write2File(`bundles/${req.body.moat}/cachedBundle/${_req.originalUrl}_${v4()}`, JSON.stringify(_writeData));
+        await write2File(`bundles/${_req.body.moat}/cachedBundle${_req.originalUrl}_${v4()}`, JSON.stringify(_writeData));
         return;
     };
     await fileWriter.writeToBundleCache(_writeData, _req);
@@ -89,4 +99,4 @@ const writeToBundleCache = async (_req, _writeData) => {
 
 
 
-module.exports = { readDir, deleteFile, moveFile, write2File, writeToBundleCache, readFile, rename, rmDir };
+module.exports = { readDir, deleteFile, moveFile, write2File, writeToBundleCache, readFile, rename, rmDir, readFolders };

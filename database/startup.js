@@ -1,17 +1,23 @@
 const { Client, Pool } = require('pg');
 require(`dotenv`).config();
-const fs = require('fs');
 
 
 // Edits client credentials based on their connection (i.e. local docker image, google hosting, etc.)
 
- const credentials = {
-        user: 'postgres',
-        host: 'localhost',
-        database: 'postgres',
-        password: 'password',
-        port: 5555,
+ let credentials = {
+  host: process.env.DATABASE_HOST,
+  port: process.env.DATABASE_PORT,
+  database: process.env.DATABASE_NAME,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
     }
+  if (process.env.NODE_ENV == 'development') {
+    credentials = {host: 'localhost',
+      port: 5432,
+      database: `postgres`,
+      user: `postgres`,
+      password: `password`,}
+  }
 const client = new Client(credentials);
 const pool = new Pool(credentials)
 
