@@ -14,15 +14,15 @@ const testF = async () => {
     //console.log(await harm.getBlocks('bb1324'))
     //const yuh = await pool.query('create table test2(test varchar(5))')
     //console.log(yuh.rows)
-    await client.connect()
+    /*await client.connect()
     console.time('query')
     //console.log(await client.query(`SELECT * FROM yuh;`))
     for (let i=0; i<1000; i++) {
         await client.query(`SELECT * FROM yuh;`)
     }
-    console.timeEnd('query')
-    
-
+    console.timeEnd('query')*/
+    const y = {'test': []}
+    console.log(y.toString())
 }
 
-//testF()
+testF()

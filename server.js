@@ -87,7 +87,7 @@ const start = async () => {
           })
         server.on('request', app);
         server.listen(process.env.NODE_PORT, function () {
-            console.log(`Server is running on port ${process.env.NODE_PORT}`)
+            console.log(`Synchronizer is running on port ${process.env.NODE_PORT}`)
         })
 
         wss.on('connection', function connection(ws) {
