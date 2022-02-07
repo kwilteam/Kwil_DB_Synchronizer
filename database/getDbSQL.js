@@ -1,4 +1,5 @@
 const knex = require('./db.js');
+const fsJ = require('fs-jetpack');
 
 
 // Returns an SQL statement to insert all of the database's data into another database
@@ -39,35 +40,28 @@ const getDbSQL = async () => {
 
         // Adds table values (via SQL statement) to new tables if they exist
         if (tableData.rowCount > 0) {
-            for (let j = 0; j < tableData.length; j++) {
-                sqlString += `INSERT INTO ${tableName} (`
+            for (let j = 0; j < tableData.rowCount; j++) {
+                
+                // Initializing variables for use in final sequel statement string
+                let headers = '';
+                let values = '';
+
+                // Cycles through columns
                 for (let k = 0; k < columnNames.rows.length; k++) {
-                    sqlString += `${columnNames.rows[k].column_name}`;
-                    if ( k < (columnNames.rows.length - 1)) { sqlString += ', '};
+                    // Saves column headers and values into variables for query writing use
+                    headers += `${columnNames.rows[k].column_name}`;
+                    values += `${Object.values(tableData.rows[j])[k]}`;
+                    // Adds commas if necessary to SQL statement
+                    if ( k < (columnNames.rows.length - 1)) { headers += ', '; values += ', '; };
                 };
-                sqlString += ') VALUES (';
-                for (let k = 0; k < tableData[j].fields.length; k++) {
-                    sqlString += `${tableData[j].fields[k].name}`;
-                    if ( k < (tableData[j].fields.length - 1)) { sqlString += ', '};
-                };
-                sqlString += `);`;
+                // Adds necessary values to snapshot SQL string
+                sqlString += `INSERT INTO ${tableName} (${headers}) VALUES (${values});`;
             };
         };
-
-        await knex.raw(`
-        CREATE TABLE users (name varchar(64));
-
-        INSERT INTO users (name)
-        VALUES ('Brennan');`);
-
     };
-    console.log(sqlString);
 
-    /*
-
-        String to file (type .txt) and label it snapshot
-
-    */
+    // Writes the outputted db-snapshot to a text file.
+    fsJ.file("snapshot.txt", { content: sqlString });
 
     // Returns sql request string to initialize copy of database.
     return(sqlString);

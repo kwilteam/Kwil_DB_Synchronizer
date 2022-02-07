@@ -170,7 +170,7 @@ const moveFile = async (file, dir2, _newName = '') => {
     });
 };
 
-// Writes to persistant fs storage based on: request type, and some unique identifier (unique identifier is unimportant, just must be unique).
+// Writes to persistent fs storage based on: request type, and some unique identifier (unique identifier is unimportant, just must be unique).
 const writeToBundleCache = async (_data, _req) => {
     // Writes by endpoint and uuid.
     fsJ.dir(`./bundles/${_req.body.moat}/cachedBundle`)
