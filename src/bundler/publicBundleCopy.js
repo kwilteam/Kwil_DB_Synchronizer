@@ -1,34 +1,34 @@
 const fs = require("fs");
-const { connected } = require("process");
 
 
 // Copies files to publicCopy bundle
 const publicCopyBundle = async () => {
-  // Saves files from public to "copyTest"
-  let publicDir = fs.opendirSync("public");
 
-  // Loops through files in public and saves them to bundle.
-  const fileScanner = async () => {
-    let filesLeft = true;
-    while (filesLeft) {
-      // Read a file as fs.Dirent object
-      let currentFile = publicDir.readSync();
-      if ( currentFile.isDirectory ) {
-        let subDir = currentFile.readSync()
-        fileScanner();
-      };
-      
-      // If readSync() does not return null
-      // print its filename
-      if (currentFile != null) {
-        console.log("Name:", currentFile.name);
-        console.log("Directory:", currentFile.isDirectory());
+  // Scans files in public via recursion and saves them to bundle.
+  const fileScanner = async ( currentDir = "public" ) => {
+
+    // Reads in files in directory
+    let currentFile = fs.opendirSync(currentDir).readSync();
+
+    // Loops through directory files. If it finds another directory, it reads that before continuing.
+    for (let file in currentFile) {
+
+      // Calls recursion loop if file is a directory.
+      if ( currentFile.isDirectory() ) {
+        let recursionStringParameter
+        fileScanner(currentDir + `/${currentFile}`);
+      } else {
+        /*
+          Save file data to bundle
+        */
       }
-      // If the readSync() returns null
-      // stop the loop
-      else filesLeft = false;
+
     };
-  }
+  };
+
+  // Initial call to scan files.
+  fileScanner();
+
 };
 
 publicCopyBundle();
