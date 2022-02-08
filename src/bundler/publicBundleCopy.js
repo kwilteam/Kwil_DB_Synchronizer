@@ -14,6 +14,7 @@ const publicCopyBundle = async () => {
     // Loops through directory files. If it finds another directory, it reads that before continuing.
     while ( filesLeft ) {
 
+      // Creates Dirent object to read current iteration in directory.
       let fileDirent = openedDir.readSync();
 
       // Checks whether fileDirent is null before running any functions on it.
