@@ -103,3 +103,4 @@ key.js
 cloud_config/
 finalizedBundles/
 pendingBundles/
+snapshot.txt
