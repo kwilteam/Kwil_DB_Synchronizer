@@ -104,3 +104,4 @@ cloud_config/
 finalizedBundles/
 pendingBundles/
 snapshot.txt
+public/
