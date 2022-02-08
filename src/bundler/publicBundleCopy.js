@@ -8,22 +8,27 @@ const publicCopyBundle = async () => {
   const fileScanner = async ( currentDir = "public" ) => {
 
     // Reads in files in directory
-    let currentFile = fs.opendirSync(currentDir).readSync();
+    let openedDir = fs.opendirSync(currentDir);
+    let filesLeft = true;
 
     // Loops through directory files. If it finds another directory, it reads that before continuing.
-    for (let file in currentFile) {
+    while ( filesLeft ) {
 
-      // Calls recursion loop if file is a directory.
-      if ( currentFile.isDirectory() ) {
+      let fileDirent = openedDir.readSync();
 
-        fileScanner(currendDir + `/${currentFile}`);
-        
-      } else {
+      // Checks whether fileDirent is null before running any functions on it.
+      if ( fileDirent == null ) {
+        // Sets filesLeft to false to stop cycling through directory.
+        filesLeft = false;
+      } else if ( fileDirent.isDirectory() ) {
+        // Calls recursion loop if file is a directory.
+        fileScanner(currentDir + `/${fileDirent.name}`);
+      } else if ( fileDirent != null ) {
+        console.log(fileDirent.name);
         /*
           Save file data to bundle
         */
-      }
-
+      };
     };
   };
 
