@@ -15,8 +15,9 @@ const publicCopyBundle = async () => {
 
       // Calls recursion loop if file is a directory.
       if ( currentFile.isDirectory() ) {
-        let recursionStringParameter
-        fileScanner(currentDir + `/${currentFile}`);
+
+        fileScanner(currendDir + `/${currentFile}`);
+        
       } else {
         /*
           Save file data to bundle
