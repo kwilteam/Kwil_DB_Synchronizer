@@ -21,7 +21,6 @@ const write2File = (_path, _content) => {
         fsJ.dir(subPath)
     }
 
-
     // Feeds in content as a buffer from a stringified JSON.
     let fileStream = fsG.createWriteStream(`${_path}`, { flags: 'w' });
     fileStream.write(_content);
@@ -79,7 +78,6 @@ const storePhotos = (_photos, _hashes) => {
                 */
                 // Finds photo hash and stores its corresponding directory path into photoPath.
                 const photoHash = _hashes[i];
-                const photoPath = './public/images/' + hashPath(photoHash);
 
                 // Creates photo hashpath if it doesn't already exist.
                 const subDirects = _hashes[i].split('/')
@@ -91,9 +89,7 @@ const storePhotos = (_photos, _hashes) => {
                 } else {
                     finPath = subDirects
                 }
-                console.log(_hashes[i])
-                console.log('finPath:')
-                console.log(finPath)
+
                 fsJ.dir(finPath)
                 // Checks whether the photo is already saved on the node and saves it if it's not.
                 if (!fs.existsSync(`${finPath}.jpg`)){

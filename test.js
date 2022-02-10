@@ -21,8 +21,7 @@ const testF = async () => {
         await client.query(`SELECT * FROM yuh;`)
     }
     console.timeEnd('query')*/
-    const y = {'test': []}
-    console.log(y.toString())
+
 }
 
-testF()
+//testF()
